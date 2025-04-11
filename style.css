@@ -1,180 +1,179 @@
-* {
-    padding: 0;
-    margin: 0;
-    box-sizing: border-box;
-    font-family: "Poppins", sans-serif;
-  }
-  body {
-    background-color: #f7f9fd;
-  }
-  .container {
-    width: 90vw;
-    max-width: 62.5em;
-    position: relative;
-    margin: auto;
-  }
-  .add-flashcard-con {
-    display: flex;
-    justify-content: flex-end;
-    padding: 1.2em 1em;
-  }
-  button {
-    border: none;
-    outline: none;
-    cursor: pointer;
-  }
-  .add-flashcard-con button {
-    font-size: 1em;
-    background-color: #587ef4;
-    color: #ffffff;
-    padding: 0.8em 1.2em;
-    font-weight: 500;
-    border-radius: 0.4em;
-  }
-  #card-con {
-    margin-top: 1em;
-  }
-  .question-container {
-    width: 90vw;
-    max-width: 34em;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    background-color: #ffffff;
-    position: absolute;
-    transform: translate(-50%, -50%);
-    top: 50%;
-    left: 50%;
-    padding: 3em 2em;
-    border-radius: 0.6em;
-    box-shadow: 0 1em 2em rgba(28, 0, 80, 0.1);
-  }
-  .question-container h2 {
-    font-size: 2.2em;
-    color: #363d55;
-    font-weight: 600;
-    text-align: center;
-    margin-bottom: 2em;
-  }
-  .wrapper {
-    display: grid;
-    grid-template-columns: 11fr 1fr;
-    gap: 1em;
-    margin-bottom: 1em;
-  }
-  .error-con {
-    align-self: center;
-  }
-  #error {
-    color: #ff5353;
-    font-weight: 400;
-  }
-  .fa-xmark {
-    font-size: 1.4em;
-    background-color: #587ef4;
-    height: 1.8em;
-    width: 1.8em;
-    display: grid;
-    place-items: center;
-    color: #ffffff;
-    border-radius: 50%;
-    cursor: pointer;
-    justify-self: flex-end;
-  }
-  label {
-    color: #363d55;
-    font-weight: 600;
-    margin-bottom: 0.3em;
-  }
-  textarea {
-    width: 100%;
-    padding: 0.7em 0.5em;
-    border: 1px solid #d0d0d0;
-    outline: none;
-    color: #414a67;
-    border-radius: 0.3em;
-    resize: none;
-  }
-  textarea:not(:last-child) {
-    margin-bottom: 1.2em;
-  }
-  textarea:focus {
-    border-color: #363d55;
-  }
-  #save-btn {
-    font-size: 1em;
-    background-color: #587ef4;
-    color: #ffffff;
-    padding: 0.6em 0;
-    border-radius: 0.3em;
-    font-weight: 600;
-  }
-  .card-list-container {
-    display: grid;
-    padding: 0.2em;
-    gap: 1.5em;
-    grid-template-columns: 1fr 1fr 1fr;
-  }
-  .card {
-    background-color: #ffffff;
-    box-shadow: 0 0.4em 1.2em rgba(28, 0, 80, 0.08);
-    padding: 1.2em;
-    border-radius: 0.4em;
-  }
-  .question-div,
-  .answer-div {
-    text-align: justify;
-  }
-  .question-div {
-    margin-bottom: 0.5em;
-    font-weight: 500;
-    color: #363d55;
-  }
-  .answer-div {
-    margin-top: 1em;
-    font-weight: 400;
-    color: #414a67;
-  }
-  .show-hide-btn {
-    display: block;
-    background-color: #587ef4;
-    color: #ffffff;
-    text-decoration: none;
-    text-align: center;
-    padding: 0.6em 0;
-    border-radius: 0.3em;
-  }
-  .buttons-con {
-    display: flex;
-    justify-content: flex-end;
-  }
-  .edit,
-  .delete {
-    background-color: transparent;
-    padding: 0.5em;
-    font-size: 1.2em;
-  }
-  .edit {
-    color: #587ef4;
-  }
-  .delete {
-    color: #ff5353;
-  }
-  .hide {
-    display: none;
-  }
-  @media screen and (max-width: 800px) {
-    .card-list-container {
-      grid-template-columns: 1fr 1fr;
-      gap: 0.8em;
-    }
-  }
-  @media screen and (max-width: 450px) {
-    body {
-      font-size: 14px;
-    }
-    .card-list-container {
-      grid-template-columns: 1fr;
-      gap: 1.2em;
-    }
-  }
+/* General styling */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #2e3b4e;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Full-screen sections */
+.form-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Navbar styling */
+.navbar {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background-color: #007bff;
+  padding: 15px 20px;
+}
+
+/* Navbar buttons */
+.nav-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #fff;
+  background-color: #007bff;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  border-radius: 4px;
+}
+
+.nav-button:hover {
+  background-color: #0056b3;
+}
+
+/* Dropdown styling */
+#displaySetsDropdown {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#displaySetsDropdown:hover {
+  border-color: #007bff;
+}
+
+#displaySetsDropdown:focus {
+  outline: none;
+  border-color: #0056b3;
+}
+
+/* Form fields */
+h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #333;
+}
+
+input[type="text"], input[type="email"], input[type="password"], select {
+  padding: 10px;
+  font-size: 18px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 300px;
+  box-sizing: border-box;
+}
+
+/* Buttons styling */
+.buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.action-button {
+  padding: 10px 20px;
+  font-size: 16px;
+  color: #fff;
+  background-color: #28a745;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.action-button:hover {
+  background-color: #218838;
+}
+
+/* Flashcard Styling */
+#flashcard {
+  text-align: center;
+  font-size: 28px;
+  width: 100%;
+  max-width: 600px;
+}
+
+#flashcard-word {
+  font-size: 30px;
+  font-weight: bold;
+}
+
+#flashcard-definition {
+  font-size: 22px;
+  color: #555;
+  display: none;
+}
+
+/* Styling for the message container placed at the bottom */
+#messageContainer {
+  padding: 10px;
+  font-size: 18px;
+  text-align: center;
+  color: green;
+  background-color: #fff;
+  border-top: 2px solid #ddd;
+}
+
+/* Link styling */
+a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+/* Container for the input and star */
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 320px; /* Matches other input fields */
+}
+
+/* Input field */
+#setName {
+  width: 100%;
+  padding: 10px;
+  padding-right: 40px; /* Space for the star */
+  font-size: 18px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+/* Star icon */
+.favorite-icon {
+  position: absolute;
+  right: 10px;
+  cursor: pointer;
+  font-size: 22px;
+  color: gray;
+  transition: color 0.3s ease;
+}
+
+/* When clicked, change color */
+.favorite-icon.favorited {
+  color: gold;
+}

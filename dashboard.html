@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flashcard App - Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <button class="nav-button" id="createSetButton">Create Set</button>
+    <button class="nav-button" id="selectSetButton">Select Set</button>
+    <button class="nav-button" id="learnModeButton">Learn Mode</button>
+    <button class="nav-button" id="logoutButton">Logout</button>
+    <select class="nav-dropdown" id="displaySetsDropdown">
+        <option value="" disabled selected>Display Sets</option>
+        
+        <option value="setdetails">Set details</option>
+        <option value="favouriteSets">Favourite Sets</option>
+    </select>
+  </nav>
+
+  <!--<div class="container">
+    <h1>Welcome to Your Dashboard</h1>
+    <p id="welcomeMessage"></p> -->
+
+    <!-- Create Set Section -->
+    <div class="form-section" id="createSetSection">
+      <h2>Set Name:</h2>
+      <div class="input-container">
+        <input type="text" id="setName" placeholder="Enter set name">
+        <span class="favorite-icon" onclick="toggleFavorite(this)">⭐</span>
+      </div>
+      <h2>Word:</h2>
+      <input type="text" id="word" placeholder="Enter word">
+      <h2>Definition:</h2>
+      <input type="text" id="definition" placeholder="Enter definition">
+      <div class="buttons">
+        <button id="addWord" class="action-button">Add Word</button>
+        <button id="saveSet" class="action-button">Save Set</button>
+      </div>
+    </div>
+
+    <!-- Select Set Section -->
+    <div class="form-section" id="selectSetSection" style="display: none;">
+      <h2>Select a Saved Set:</h2>
+      <select id="savedSetsDropdown">
+        <option value="" disabled selected>Select a set</option>
+      </select>
+      <div class="buttons">
+        <button id="selectSavedSet" class="action-button">Select Set</button>
+        <button id="deleteSavedSet" class="action-button">Delete Set</button>
+      </div>
+    </div>
+    <!-- Learn Mode Section -->
+    <div class="form-section" id="learnModeSection" style="display: none;">
+      <div id="flashcard">
+        <div id="flashcard-word">Word</div>
+        <div id="flashcard-definition">Definition</div>
+      </div>
+      <div class="buttons">
+        <button id="showDefinition" class="action-button">Show Definition</button>
+        <button id="nextCard" class="action-button">Next Card</button>
+        <button id="previousCard" class="action-button">Previous Card</button>
+      </div>
+    </div>
+    
+
+    <div id="messageContainer" style="margin-top: 10px; color: green;"></div>
+  </div>
+
+  <script src="script.js"></script>
+  
+    
+    
+  
+</body>
+</html>
