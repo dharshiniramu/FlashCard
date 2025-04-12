@@ -7,27 +7,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupLink = document.getElementById("signupLink");
   const loginLink = document.getElementById("loginLink");
   const messageContainer = document.getElementById("messageContainer");
-  let savedSets = []; // Array to store saved sets
-  let currentSet = { name: '', words: [] };
+  
+  let currentUser = null;
+  let currentSet = { set_id: null, name: '', words: [] };
   let currentIndex = 0;
   let isDefinitionVisible = false;
+  let savedSets = [];
 
-  // Switch to Signup Form
+  // Switch between login/signup forms
   if (signupLink) {
     signupLink.addEventListener("click", (e) => {
       e.preventDefault();
-      signupSection.style.display = "block";
+      signupSection.style.display = "flex";
       loginSection.style.display = "none";
     });
   }
-  
 
-  // Switch to Login Form
   if (loginLink) {
     loginLink.addEventListener("click", (e) => {
       e.preventDefault();
       signupSection.style.display = "none";
-      loginSection.style.display = "block";
+      loginSection.style.display = "flex";
     });
   }
 
@@ -54,9 +54,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (response.ok) {
           showMessage("Signup successful! Please log in.", "green");
           signupSection.style.display = "none";
-          loginSection.style.display = "block";
+          loginSection.style.display = "flex";
         } else {
-          showMessage(data.error, "red");
+          showMessage(data.message || "Error signing up", "red");
         }
       } catch (error) {
         showMessage("Error signing up. Try again.", "red");
@@ -79,18 +79,21 @@ document.addEventListener("DOMContentLoaded", () => {
         const response = await fetch("http://localhost:3000/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email, password }),
+          body: JSON.stringify({ email, password }),
         });
 
         const data = await response.json();
         if (response.ok) {
           showMessage("Login successful! Redirecting...", "green");
-          localStorage.setItem("user", JSON.stringify(data)); // Store user session
+          currentUser = data.user;
+          localStorage.setItem("user", JSON.stringify(data.user));
+          localStorage.setItem("token", data.token);
+          
           setTimeout(() => {
-            window.location.href = "dashboard.html"; // Redirect to dashboard
-          }, 2000);
+            window.location.href = "dashboard.html";
+          }, 1500);
         } else {
-          showMessage(data.error, "red");
+          showMessage(data.message || "Invalid credentials", "red");
         }
       } catch (error) {
         showMessage("Error logging in. Try again.", "red");
@@ -98,183 +101,282 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Display Messages
-  function showMessage(message, color) {
-    if (messageContainer) {
-      messageContainer.textContent = message;
-      messageContainer.style.color = color;
-    }
+  // Add word to current set (local only until set is saved)
+  if (document.getElementById('addWord')) {
+    document.getElementById('addWord').addEventListener('click', () => {
+      const word = document.getElementById('word').value.trim();
+      const definition = document.getElementById('definition').value.trim();
+
+      if (word && definition) {
+        currentSet.words.push({ word, definition });
+        showMessage(`Word "${word}" added to current set.`, 'green');
+        document.getElementById('word').value = '';
+        document.getElementById('definition').value = '';
+      } else {
+        showMessage('Please enter both word and definition.', 'red');
+      }
+    });
   }
-  
-  
-  document.getElementById('addWord').addEventListener('click', () => {
-    const word = document.getElementById('word').value.trim();
-    const definition = document.getElementById('definition').value.trim();
-    const setId = currentSet.id; // Ensure currentSet has a valid set_id
-  
-    if (word && definition) {
-      // Add word to the current set UI
-      currentSet.words.push({ word, definition });
-      showMessage(`Word "${word}" added to the set.`);
-  
-      // Send the word to the backend
-      fetch("http://localhost:3000/words", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ set_id: setId, word, definition }),
-      })
-        .then((response) => response.json())
-        .then((data) => console.log("Word Added:", data))
-        .catch((error) => console.error("Error:", error));
-  
-      // Clear input fields
-      document.getElementById('word').value = '';
-      document.getElementById('definition').value = '';
-    } else {
-      showMessage('Please enter both word and definition.', 'error');
-    }
-  });
-  
-    // Save the set
-    /*document.getElementById('saveSet').addEventListener('click', async () => {
+
+  // Save the set (with all words)
+  if (document.getElementById('saveSet')) {
+    document.getElementById('saveSet').addEventListener('click', async () => {
       const setName = document.getElementById('setName').value.trim();
-  
+      const user = JSON.parse(localStorage.getItem('user'));
+
       if (!setName) {
-          showMessage('Please enter a set name.', 'error');
-          return;
+        showMessage('Please enter a set name.', 'red');
+        return;
       }
-  
+
+      if (!user) {
+        showMessage('User not logged in.', 'red');
+        return;
+      }
+
+      if (currentSet.words.length === 0) {
+        showMessage('Please add at least one word to the set.', 'red');
+        return;
+      }
+
       try {
-          // Fetch the logged-in user's ID (Assuming it's available via session or token)
-          const userResponse = await fetch('/get-user-id');
-          const userData = await userResponse.json();
-  
-          if (!userData.id) {
-              showMessage('User not logged in.', 'error');
-              return;
-          }
-  
-          // Send request to save the set in the database
-          const response = await fetch('/save-set', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: userData.id, set_name: setName })
-          });
-  
-          const data = await response.json();
-          showMessage(data.message);
-          document.getElementById('setName').value = ''; // Clear input
-  
-      } catch (error) {
-          console.error('Error:', error);
-          showMessage('An error occurred while saving the set.', 'error');
-      }
-  });*/
-  
-  
-  function createSet(userId, setName) {
-      fetch("http://localhost:3000/sets", {
+        // First create the set
+        const setResponse = await fetch("http://localhost:3000/sets", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: userId, set_name: setName }),
-      })
-      .then(response => response.json())
-      .then(data => {
-          console.log("Set Created:", data);
-          showMessage(`Set "${setName}" created successfully!`);
-          savedSets.push({ name: setName, words: [] }); // Add set to local storage
-          updateDropdown(); // Update dropdown after creation
-      })
-      .catch(error => console.error("Error:", error));
-  }
-  // Update dropdown with saved sets
-  function updateDropdown() {
-    const dropdown = document.getElementById('savedSetsDropdown');
-    dropdown.innerHTML = '<option value="" disabled selected>Select a set</option>'; // Clear previous options
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ set_name: setName }),
+        });
 
-    savedSets.forEach((set, index) => {
-      const option = document.createElement('option');
-      option.value = index;
-      option.textContent = set.name;
-      dropdown.appendChild(option);
+        const setData = await setResponse.json();
+        if (!setResponse.ok) {
+          showMessage(setData.message || 'Error saving set', 'red');
+          return;
+        }
+
+        // Then add all words to the set
+        const wordsToAdd = currentSet.words;
+        const addWordPromises = wordsToAdd.map(word => 
+          fetch("http://localhost:3000/words", {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ 
+              set_id: setData.set_id, 
+              word: word.word, 
+              definition: word.definition 
+            }),
+          })
+        );
+
+        const wordResponses = await Promise.all(addWordPromises);
+        const allWordsAdded = wordResponses.every(res => res.ok);
+
+        if (allWordsAdded) {
+          currentSet.set_id = setData.set_id;
+          currentSet.name = setName;
+          showMessage(`Set "${setName}" saved with ${wordsToAdd.length} words!`, 'green');
+          document.getElementById('setName').value = '';
+          updateSavedSetsDropdown();
+        } else {
+          showMessage('Error saving some words', 'red');
+        }
+      } catch (error) {
+        showMessage('Error saving set', 'red');
+      }
     });
   }
-  // Show or hide sections
-  function showSection(sectionId) {
-    const sections = document.querySelectorAll('.form-section');
-    sections.forEach((section) => section.style.display = 'none');
-    document.getElementById(sectionId).style.display = 'flex';
+
+  // Load saved sets for dropdown
+  async function updateSavedSetsDropdown() {
+    try {
+      const response = await fetch("http://localhost:3000/sets", {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.ok) {
+        savedSets = await response.json();
+        const dropdown = document.getElementById('savedSetsDropdown');
+        dropdown.innerHTML = '<option value="" disabled selected>Select a set</option>';
+        
+        savedSets.forEach(set => {
+          const option = document.createElement('option');
+          option.value = set.set_id;
+          option.textContent = set.set_name;
+          if (set.is_favorite) {
+            option.dataset.favorite = true;
+          }
+          dropdown.appendChild(option);
+        });
+
+        // Update favorite icon for selected set if exists
+        if (currentSet.set_id) {
+          const selectedSet = savedSets.find(set => set.set_id == currentSet.set_id);
+          if (selectedSet) {
+            const favoriteIcon = document.getElementById('selectedSetFavorite');
+            if (favoriteIcon) {
+              favoriteIcon.textContent = selectedSet.is_favorite ? '🌟' : '⭐';
+              favoriteIcon.classList.toggle('favorited', selectedSet.is_favorite);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching sets:', error);
+    }
   }
 
-  //Select a saved set
-  document.getElementById('selectSavedSet').addEventListener('click', () => {
-    const dropdown = document.getElementById('savedSetsDropdown');
-    const selectedValue = dropdown.value;
+  // Select a saved set
+  if (document.getElementById('selectSavedSet')) {
+    document.getElementById('selectSavedSet').addEventListener('click', async () => {
+      const dropdown = document.getElementById('savedSetsDropdown');
+      const selectedId = dropdown.value;
 
-    if (selectedValue !== '') {
-      const selectedSet = savedSets[selectedValue];
-      showMessage(`You selected: ${selectedSet.name}`);
-      console.log(selectedSet); // Display selected set details in the console
-      currentSet = selectedSet; // Set current set for Learn Mode
-    } else {
-      showMessage('Please select a set first.', 'error');
+      if (!selectedId) {
+        showMessage('Please select a set first.', 'red');
+        return;
+      }
+
+      try {
+        const wordsRes = await fetch(`http://localhost:3000/sets/${selectedId}/words`, {
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (wordsRes.ok) {
+          const words = await wordsRes.json();
+          const selectedSet = savedSets.find(set => set.set_id == selectedId);
+          
+          currentSet = {
+            set_id: selectedId,
+            name: selectedSet.set_name,
+            words: words.map(w => ({ word: w.word, definition: w.definition }))
+          };
+          
+          showMessage(`Set "${selectedSet.set_name}" loaded.`, 'green');
+        } else {
+          showMessage('Error loading set', 'red');
+        }
+      } catch (error) {
+        showMessage('Error loading set', 'red');
+      }
+    });
+  }
+
+  // Delete a saved set - UPDATED VERSION
+  if (document.getElementById('deleteSavedSet')) {
+    document.getElementById('deleteSavedSet').addEventListener('click', async () => {
+      const dropdown = document.getElementById('savedSetsDropdown');
+      const selectedId = dropdown.value;
+
+      if (!selectedId) {
+        showMessage('Please select a set to delete.', 'red');
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:3000/sets/${selectedId}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          // Remove the deleted set from the savedSets array
+          savedSets = savedSets.filter(set => set.set_id != selectedId);
+          
+          // Update the dropdown immediately
+          const dropdown = document.getElementById('savedSetsDropdown');
+          dropdown.innerHTML = '<option value="" disabled selected>Select a set</option>';
+          
+          savedSets.forEach(set => {
+            const option = document.createElement('option');
+            option.value = set.set_id;
+            option.textContent = set.set_name;
+            dropdown.appendChild(option);
+          });
+
+          // Reset current set if it was the deleted one
+          if (currentSet.set_id == selectedId) {
+            currentSet = { set_id: null, name: '', words: [] };
+          }
+
+          showMessage('Set deleted successfully', 'green');
+        } else {
+          const error = await response.json();
+          showMessage(error.message || 'Error deleting set', 'red');
+        }
+      } catch (error) {
+        showMessage('Error deleting set', 'red');
+      }
+    });
+  }
+
+  // Initialize dashboard if on dashboard page
+  if (window.location.pathname.endsWith('dashboard.html')) {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) {
+      window.location.href = 'index.html';
+      return;
     }
-  });
 
-  // Delete a saved set
-  document.getElementById('deleteSavedSet').addEventListener('click', () => {
-    const dropdown = document.getElementById('savedSetsDropdown');
-    const selectedValue = dropdown.value;
+    // Load user's sets
+    updateSavedSetsDropdown();
+  }
 
-    if (selectedValue !== '') {
-      const deletedSet = savedSets.splice(selectedValue, 1)[0];
-      updateDropdown(); // Update dropdown after deletion
-      showMessage(`Set "${deletedSet.name}" deleted.`);
-    } else {
-      showMessage('Please select a set to delete.', 'error');
-    }
-  });
-
-  // Function to reset visibility of sections
+  // Navigation between sections
   function resetSections() {
-    const sections = document.querySelectorAll('.form-section');
-    sections.forEach(section => {
+    document.querySelectorAll('.form-section').forEach(section => {
       section.style.display = 'none';
-      section.style.justifyContent = 'center'; // Ensure vertical centering
-      section.style.alignItems = 'center';    // Ensure horizontal centering
     });
   }
 
-// Navigation between sections
-  document.getElementById('createSetButton').addEventListener('click', () => {
-    resetSections();
-    document.getElementById('createSetSection').style.display = 'flex';
-  });
+  if (document.getElementById('createSetButton')) {
+    document.getElementById('createSetButton').addEventListener('click', () => {
+      resetSections();
+      document.getElementById('createSetSection').style.display = 'flex';
+      currentSet = { set_id: null, name: '', words: [] };
+    });
+  }
 
-  document.getElementById('selectSetButton').addEventListener('click', () => {
-    resetSections();
-    document.getElementById('selectSetSection').style.display = 'flex';
-  });
-  document.getElementById('learnModeButton').addEventListener('click', () => {
-    resetSections();
-    document.getElementById('learnModeSection').style.display = 'flex';
-    initializeLearnMode(); // Initialize Learn Mode when navigating to it
-  });
-  
+  if (document.getElementById('selectSetButton')) {
+    document.getElementById('selectSetButton').addEventListener('click', () => {
+      resetSections();
+      document.getElementById('selectSetSection').style.display = 'flex';
+    });
+  }
+
+  if (document.getElementById('learnModeButton')) {
+    document.getElementById('learnModeButton').addEventListener('click', () => {
+      resetSections();
+      document.getElementById('learnModeSection').style.display = 'flex';
+      initializeLearnMode();
+    });
+  }
+
   // Learn Mode functionality
   function initializeLearnMode() {
     if (currentSet.words.length === 0) {
-      showMessage('No words available in the selected set. Please select a valid set.', 'error');
+      showMessage('No words available in the selected set.', 'red');
       return;
     }
-    currentIndex = 0; // Reset to the first card
-    isDefinitionVisible = false; // Initially show only the word
-    displayCard(); // Display the first card
+    currentIndex = 0;
+    isDefinitionVisible = false;
+    displayCard();
   }
+
   function displayCard() {
     const flashcardWord = document.getElementById('flashcard-word');
     const flashcardDefinition = document.getElementById('flashcard-definition');
-  
+
     if (currentSet.words.length > 0) {
       const currentCard = currentSet.words[currentIndex];
       flashcardWord.textContent = currentCard.word;
@@ -285,61 +387,94 @@ document.addEventListener("DOMContentLoaded", () => {
       flashcardDefinition.textContent = '';
     }
   }
-  // Flip the card to show/hide the definition
-  document.getElementById('showDefinition').addEventListener('click', () => {
-    isDefinitionVisible = !isDefinitionVisible; // Toggle visibility
-    displayCard();
-  });
 
-// Navigate to the next card
-  document.getElementById('nextCard').addEventListener('click', () => {
-    if (currentSet.words.length > 0) {
-      if (currentIndex < currentSet.words.length - 1) {
-        currentIndex = (currentIndex + 1) % currentSet.words.length; // Next card
-        isDefinitionVisible = false; // Reset to show only the word
-        displayCard();
-      } else {
-        document.getElementById('flashcard-word').textContent = "No next word";
-        document.getElementById('flashcard-definition').style.display = "none"; // Hide definition
-      }
-    }
-  });
-  // Navigate to the previous card
-  document.getElementById('previousCard').addEventListener('click', () => {
-    if (currentSet.words.length > 0) {
-      if (currentIndex > 0) {
-        currentIndex = (currentIndex - 1 + currentSet.words.length) % currentSet.words.length; // Previous card
-        isDefinitionVisible = false; // Reset to show only the word
-        displayCard();
-      } else {
-        document.getElementById('flashcard-word').textContent = "No previous word";
-        document.getElementById('flashcard-definition').style.display = "none"; // Hide definition
-      }
-    }
-  });
-
-
-});
-document.getElementById("logoutButton").addEventListener("click", () => {
-  localStorage.removeItem("user");
-  window.location.href = "index.html";
-});
-// Define function globally so it works in HTML onclick
-window.toggleFavorite = function (icon, setId) {
-  const isFavorited = icon.classList.contains("favorited");
-  icon.classList.toggle("favorited");
-  icon.textContent = isFavorited ? "⭐" : "🌟"; // Toggle star
-
-  if (!isFavorited) {
-    // Send a request to save to the database
-    fetch("http://localhost:3000/favorites", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: userId, set_id: setId }), // Make sure `userId` is available
-    })
-      .then((response) => response.json())
-      .then((data) => console.log(data))
-      .catch((error) => console.error("Error:", error));
+  if (document.getElementById('showDefinition')) {
+    document.getElementById('showDefinition').addEventListener('click', () => {
+      isDefinitionVisible = !isDefinitionVisible;
+      displayCard();
+    });
   }
-};
 
+  if (document.getElementById('nextCard')) {
+    document.getElementById('nextCard').addEventListener('click', () => {
+      if (currentSet.words.length === 0) return;
+      
+      currentIndex = (currentIndex + 1) % currentSet.words.length;
+      isDefinitionVisible = false;
+      displayCard();
+    });
+  }
+
+  if (document.getElementById('previousCard')) {
+    document.getElementById('previousCard').addEventListener('click', () => {
+      if (currentSet.words.length === 0) return;
+      
+      currentIndex = (currentIndex - 1 + currentSet.words.length) % currentSet.words.length;
+      isDefinitionVisible = false;
+      displayCard();
+    });
+  }
+
+  // Logout
+  if (document.getElementById('logoutButton')) {
+    document.getElementById('logoutButton').addEventListener('click', () => {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      window.location.href = 'index.html';
+    });
+  }
+
+  // Toggle favorite
+  window.toggleFavorite = async function(icon, setId) {
+    if (!setId) {
+      showMessage('Please save the set first', 'red');
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:3000/favorites", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ set_id: parseInt(setId) })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Update icon based on server response
+        if (data.action === 'added') {
+          icon.classList.add('favorited');
+          icon.textContent = '🌟';
+        } else {
+          icon.classList.remove('favorited');
+          icon.textContent = '⭐';
+        }
+        showMessage(data.message, 'green');
+        
+        // Update the set's favorite status in savedSets
+        const setIndex = savedSets.findIndex(set => set.set_id == setId);
+        if (setIndex !== -1) {
+          savedSets[setIndex].is_favorite = data.action === 'added';
+        }
+      } else {
+        throw new Error(data.message || 'Failed to update favorite');
+      }
+    } catch (error) {
+      showMessage(error.message || 'Error updating favorite', 'red');
+    }
+  };
+
+  // Helper function to show messages
+  function showMessage(message, color = 'green') {
+    if (messageContainer) {
+      messageContainer.textContent = message;
+      messageContainer.style.color = color;
+      setTimeout(() => {
+        messageContainer.textContent = '';
+      }, 3000);
+    }
+  }
+});

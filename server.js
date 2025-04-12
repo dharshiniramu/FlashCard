@@ -1,181 +1,291 @@
+require('dotenv').config();
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
-
-
-// Initialize Express
+// Initialize Express app
 const app = express();
 
-// Middleware for JSON parsing
+// Middleware
 app.use(bodyParser.json());
 app.use(cors());
 
-// MySQL connection setup
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'dharshini@123',
-  database: 'flashcard'
-});
-
-db.connect((err) => {
-  if (err) {
-    console.error('Error connecting to MySQL database:', err);
-  } else {
-    console.log('Connected to the MySQL database.');
-  }
-});
-
-
-
-// Signup route
-app.post('/signup', (req, res) => {
-  const { username, email, password } = req.body;
-
-  if (!username || !email || !password) {
-    return res.status(400).json({ message: 'Please provide all required fields' });
-  }
-
-  bcrypt.hash(password, 10, (err, hashedPassword) => {
-    if (err) {
-      return res.status(500).json({ message: 'Error hashing password' });
-    }
-
-    const query = 'INSERT INTO users (username, email, password) VALUES (?, ?, ?)';
-    db.query(query, [username, email, hashedPassword], (err, result) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error saving user to database' });
-      }
-      res.status(200).json({ message: 'User signed up successfully' });
+// Database Connection Pool
+let pool;
+async function initializeDatabase() {
+  try {
+    pool = mysql.createPool({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || 'dharshini@123',
+      database: process.env.DB_NAME || 'flashcard',
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
     });
-  });
-});
 
-app.post("/sets", (req, res) => {
-  const { id, set_name } = req.body;
-  const sql = "INSERT INTO sets (id, set_name) VALUES (?, ?)";
-  db.query(sql, [id, set_name], (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Set created successfully!", set_id: result.insertId });
-  });
-});
-// Add words to a set
-app.post("/words", (req, res) => {
-  const { set_id, word, definition } = req.body;
-  const sql = "INSERT INTO words (set_id, word, definition) VALUES (?, ?, ?)";
-  db.query(sql, [set_id, word, definition], (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Word added successfully!" });
-  });
-});
-// Get user ID (Assuming user is authenticated via token)
-app.post("/sets", (req, res) => {
-  const { id, set_name } = req.body;
-
-  // Validate the input
-  if (!id || !set_name) {
-    return res.status(400).json({ message: "User ID and set name are required." });
+    // Test connection
+    const connection = await pool.getConnection();
+    console.log('✅ Connected to MySQL database successfully!');
+    connection.release();
+  } catch (err) {
+    console.error('❌ Database connection failed:', err.message);
+    process.exit(1);
   }
+}
 
-  // SQL query to insert the set into the database
-  const sql = "INSERT INTO sets (id, set_name) VALUES (?, ?)";
-  db.query(sql, [id, set_name], (err, result) => {
-    if (err) {
-      console.error("Error creating set:", err);
-      return res.status(500).json({ message: "Error creating the set." });
+// JWT Authentication Middleware
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, process.env.JWT_SECRET || 'secret_key', (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+}
+
+// Routes
+
+// Signup
+app.post('/signup', async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+    
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Respond with success and the new set ID
-    res.json({ message: "Set created successfully!", set_id: result.insertId });
-  });
-});
-app.get("/get-user-id", (req, res) => {
-  // Simulate fetching user ID from session or token
-  const userId = 1; // Replace with actual logic to fetch user ID
-  if (!userId) {
-    return res.status(401).json({ message: "User not logged in." });
-  }
-  res.json({ id: userId });
-});
-// Save a set
-app.post("/save-set", (req, res) => {
-  const { id, set_name } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const [result] = await pool.execute(
+      'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+      [username, email, hashedPassword]
+    );
 
-  if (!id || !set_name) {
-    return res.status(400).json({ message: "User ID and set name are required." });
-  }
-
-  const sql = "INSERT INTO sets (id, set_name) VALUES (?, ?)";
-  db.query(sql, [id, set_name], (err, result) => {
-    if (err) {
-      console.error("Error saving set:", err);
-      return res.status(500).json({ message: "Error saving the set." });
+    res.status(201).json({ message: 'User created successfully' });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ message: 'Email already exists' });
     }
-    res.json({ message: "Set saved successfully!", set_id: result.insertId });
-  });
-});
-app.post("/favorites", (req, res) => {
-  const { id, set_id } = req.body;
-  const sql = "INSERT INTO favorites (id, set_id) VALUES (?, ?)";
-  db.query(sql, [id, set_id], (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Set favorited successfully!" });
-  });
-});
-// Log a revision
-app.post("/revisions", (req, res) => {
-  const { id, set_id, revision_date } = req.body;
-  const sql = "INSERT INTO revisions (id, set_id, revision_date) VALUES (?, ?, ?)";
-  db.query(sql, [id, set_id, revision_date], (err, result) => {
-    if (err) return res.status(500).json(err);
-    res.json({ message: "Revision logged successfully!" });
-  });
-});
-
-
-// Login route
-app.post('/login', (req, res) => {
-  const { email, password } = req.body;  // Change from 'username' to 'email'
-
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Please provide both email and password' });
+    res.status(500).json({ message: 'Error creating user' });
   }
+});
 
-  const query = 'SELECT * FROM users WHERE email = ?';  // Change from 'username' to 'email'
-  db.query(query, [email], (err, result) => {
-    if (err) {
-      return res.status(500).json({ message: 'Error retrieving user' });
+// Login
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    if (result.length === 0) {
-      return res.status(400).json({ message: 'User not found' });
+    const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const user = result[0];
+    const user = rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
-    bcrypt.compare(password, user.password, (err, isMatch) => {
-      if (err) {
-        return res.status(500).json({ message: 'Error comparing passwords' });
-      }
+    const token = jwt.sign(
+      { id: user.id, username: user.username }, 
+      process.env.JWT_SECRET || 'secret_key', 
+      { expiresIn: '1h' }
+    );
 
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Invalid credentials' });
-      }
+    res.json({ 
+      message: 'Login successful', 
+      token,
+      user: { id: user.id, username: user.username, email: user.email }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error logging in' });
+  }
+});
 
-      const token = jwt.sign({ id: user.id, username: user.username }, 'secret_key', {
-        expiresIn: '1h',
+// Create a new flashcard set
+app.post('/sets', authenticateToken, async (req, res) => {
+  try {
+    const { set_name } = req.body;
+    const userId = req.user.id;
+
+    if (!set_name) {
+      return res.status(400).json({ message: 'Set name is required' });
+    }
+
+    const [result] = await pool.execute(
+      'INSERT INTO sets (user_id, set_name) VALUES (?, ?)',
+      [userId, set_name]
+    );
+
+    res.json({ 
+      message: 'Set created successfully',
+      set_id: result.insertId,
+      set_name
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating set' });
+  }
+});
+
+// Add word to a set
+app.post('/words', authenticateToken, async (req, res) => {
+  try {
+    const { set_id, word, definition } = req.body;
+    
+    if (!set_id || !word || !definition) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    await pool.execute(
+      'INSERT INTO words (set_id, word, definition) VALUES (?, ?, ?)',
+      [set_id, word, definition]
+    );
+
+    res.json({ message: 'Word added successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error adding word' });
+  }
+});
+
+// Get user's sets
+app.get('/sets', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [sets] = await pool.execute(
+      'SELECT * FROM sets WHERE user_id = ?',
+      [userId]
+    );
+    res.json(sets);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching sets' });
+  }
+});
+
+// Get words in a set
+app.get('/sets/:setId/words', authenticateToken, async (req, res) => {
+  try {
+    const { setId } = req.params;
+    const [words] = await pool.execute(
+      'SELECT * FROM words WHERE set_id = ?',
+      [setId]
+    );
+    res.json(words);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching words' });
+  }
+});
+
+// Add to favorites - UPDATED VERSION
+app.post('/favorites', authenticateToken, async (req, res) => {
+  try {
+    const { set_id } = req.body;
+    const userId = req.user.id;
+
+    if (!set_id) {
+      return res.status(400).json({ message: 'set_id is required' });
+    }
+
+    // Check if set exists and belongs to user
+    const [set] = await pool.execute(
+      'SELECT * FROM sets WHERE set_id = ? AND user_id = ?',
+      [set_id, userId]
+    );
+
+    if (set.length === 0) {
+      return res.status(404).json({ message: 'Set not found' });
+    }
+
+    // Check if already favorited
+    const [existing] = await pool.execute(
+      'SELECT * FROM favorites WHERE user_id = ? AND set_id = ?',
+      [userId, set_id]
+    );
+
+    if (existing.length > 0) {
+      // Remove from favorites
+      await pool.execute(
+        'DELETE FROM favorites WHERE user_id = ? AND set_id = ?',
+        [userId, set_id]
+      );
+      await pool.execute(
+        'UPDATE sets SET is_favorite = FALSE WHERE set_id = ?',
+        [set_id]
+      );
+      return res.json({ 
+        message: 'Removed from favorites',
+        action: 'removed'
       });
+    }
 
-      res.status(200).json({ message: 'Login successful', token });
+    // Add to favorites
+    await pool.execute(
+      'INSERT INTO favorites (user_id, set_id) VALUES (?, ?)',
+      [userId, set_id]
+    );
+    await pool.execute(
+      'UPDATE sets SET is_favorite = TRUE WHERE set_id = ?',
+      [set_id]
+    );
+    
+    return res.json({ 
+      message: 'Added to favorites',
+      action: 'added'
     });
-  });
+    
+  } catch (error) {
+    console.error('Error in favorites:', error);
+    res.status(500).json({ message: 'Error updating favorites' });
+  }
+});
+// Add this new route to server.js before starting the server
+
+// Delete a set
+app.delete('/sets/:setId', authenticateToken, async (req, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+
+    // First delete all words in the set
+    await pool.execute('DELETE FROM words WHERE set_id = ?', [setId]);
+    
+    // Then delete the set
+    const [result] = await pool.execute(
+      'DELETE FROM sets WHERE set_id = ? AND user_id = ?',
+      [setId, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Set not found or not owned by user' });
+    }
+
+    res.json({ message: 'Set deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting set' });
+  }
 });
 
-// Start the server
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
+// Start Server
+async function startServer() {
+  await initializeDatabase();
+  
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
